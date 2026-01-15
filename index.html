@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>呼吸器外科専門医 新規申請管理</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f9fafb; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 1rem; }
+        .card { background: white; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 1rem; margin-bottom: 1rem; }
+        .btn { padding: 0.5rem 1rem; border-radius: 0.375rem; border: none; cursor: pointer; font-size: 0.875rem; display: inline-flex; align-items: center; gap: 0.5rem; }
+        .btn-primary { background: #2563eb; color: white; }
+        .btn-primary:active { background: #1d4ed8; }
+        .btn-secondary { background: white; border: 1px solid #d1d5db; }
+        .btn-secondary:active { background: #f9fafb; }
+        .tabs { display: flex; border-bottom: 1px solid #e5e7eb; overflow-x: auto; }
+        .tab { padding: 0.75rem 1rem; border: none; background: none; cursor: pointer; white-space: nowrap; font-size: 0.875rem; color: #6b7280; border-bottom: 2px solid transparent; }
+        .tab.active { color: #2563eb; border-bottom-color: #2563eb; }
+        .badge-complete { background: #dcfce7; border: 2px solid #22c55e; padding: 1rem; border-radius: 0.5rem; }
+        .badge-incomplete { background: #fef3c7; border: 2px solid #eab308; padding: 1rem; border-radius: 0.5rem; }
+        .badge-number { font-size: 1.5rem; font-weight: bold; }
+        .item { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; background: #f9fafb; border-radius: 0.375rem; margin-bottom: 0.5rem; font-size: 0.875rem; }
+        .item-content { flex: 1; min-width: 0; }
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; padding: 1rem; z-index: 50; }
+        .modal.show { display: flex; }
+        .modal-content { background: white; border-radius: 0.5rem; padding: 1.5rem; max-width: 50rem; width: 100%; max-height: 90vh; overflow-y: auto; }
+        .form-group { margin-bottom: 1rem; }
+        .form-label { display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.25rem; }
+        .form-input, .form-select { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem; }
+        .grid { display: grid; gap: 0.75rem; }
+        @media (min-width: 768px) { .grid-2 { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 1024px) { .grid-3 { grid-template-columns: repeat(3, 1fr); } }
+        .text-blue { color: #2563eb; }
+        .font-bold { font-weight: bold; }
+        .mb-4 { margin-bottom: 1rem; }
+        .flex { display: flex; }
+        .gap-2 { gap: 0.5rem; }
+        .items-center { align-items: center; }
+        .justify-between { justify-content: space-between; }
+        .badge-tag { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; margin-left: 0.5rem; font-weight: 600; }
+        .badge-a { background: #fee2e2; color: #dc2626; }
+        .badge-b { background: #fef3c7; color: #d97706; }
+        .badge-open { background: #fef3c7; color: #d97706; }
+        .badge-thoraco { background: #dbeafe; color: #2563eb; }
+        .badge-first { background: #dcfce7; color: #16a34a; }
+        .surgery-reference { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.375rem; padding: 1rem; margin-top: 1rem; font-size: 0.75rem; max-height: 400px; overflow-y: auto; line-height: 1.6; }
+        .surgery-reference h4 { color: #2563eb; font-size: 0.875rem; margin-bottom: 0.75rem; font-weight: 600; }
+        .surgery-note { color: #6b7280; font-size: 0.7rem; margin-top: 0.75rem; padding: 0.75rem; background: #f3f4f6; border-radius: 0.25rem; }
+        .text-gray { color: #6b7280; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script>
+        const data = JSON.parse(localStorage.getItem('cert-tracker-new-data') || '{"surgeries":[],"publications":[],"presentations":[],"conferenceAttendances":[],"seminars":[],"thoracoscopySeminars":[],"safetyTraining":[]}');
+        let activeTab = 'overview';
+        let modalType = '';
+
+        function saveData() {
+            localStorage.setItem('cert-tracker-new-data', JSON.stringify(data));
+            render();
+        }
+
+        function calc() {
+            const totalSurgeries = data.surgeries.length;
+            const operatorSurgeries = data.surgeries.filter(s => s.role === '術者').length;
+            const assistantSurgeries = data.surgeries.filter(s => s.role !== '術者').length;
+            const surgeryGroupA = data.surgeries.filter(s => s.role === '術者' && s.group && s.group.startsWith('A-')).length;
+const surgeryGroupB = data.surgeries.filter(s => s.role === '術者' && s.group && s.group.startsWith('B-')).length;
+const surgeryGroupA1 = data.surgeries.filter(s => s.role === '術者' && s.group === 'A-1').length;
+const surgeryGroupA2 = data.surgeries.filter(s => s.role === '術者' && s.group === 'A-2').length;
+const surgeryGroupA3 = data.surgeries.filter(s => s.role === '術者' && s.group === 'A-3').length;
+const surgeryGroupA4 = data.surgeries.filter(s => s.role === '術者' && s.group === 'A-4').length;
+const surgeryGroupB1 = data.surgeries.filter(s => s.role === '術者' && s.group === 'B-1').length;
+const surgeryGroupB2 = data.surgeries.filter(s => s.role === '術者' && s.group === 'B-2').length;
+const surgeryGroupB3 = data.surgeries.filter(s => s.role === '術者' && s.group === 'B-3').length;
+const surgeryGroupB4 = data.surgeries.filter(s => s.role === '術者' && s.group === 'B-4').length;
+const surgeryGroupB5 = data.surgeries.filter(s => s.role === '術者' && s.group === 'B-5').length;
+const surgeryGroupB6 = data.surgeries.filter(s => s.role === '術者' && s.group === 'B-6').length;
+            const openSurgeries = data.surgeries.filter(s => s.surgeryType === '開胸下').length;
+            const thoracoscopySurgeries = data.surgeries.filter(s => s.role === '術者' && s.surgeryType === '胸腔鏡下').length;
+            
+            const publicationsTotal = data.publications.length;
+            const publicationsFirst = data.publications.filter(p => p.authorType === '筆頭').length;
+            
+            let nationalUnits = 0;
+            let regionalUnits = 0;
+            let requiredMeetingUnits = 0;
+            
+            data.presentations.forEach(p => {
+                if (p.meetingType === '全国学会') {
+                    nationalUnits += 1;
+                    if (['日本呼吸器外科学会', '日本胸部外科学会'].includes(p.meetingName)) {
+                        requiredMeetingUnits += 1;
+                    }
+                } else if (p.meetingType === '地方会') {
+                    regionalUnits += 0.5;
+                }
+            });
+            regionalUnits = Math.min(regionalUnits, 2);
+            const totalPresentationUnits = nationalUnits + regionalUnits;
+            
+            const conferenceCount = data.conferenceAttendances.length;
+            const seminarCount = data.seminars.length;
+            const thoracoscopySeminarCount = data.thoracoscopySeminars.length;
+            const safetyCount = data.safetyTraining.length;
+            
+return {
+    totalSurgeries, operatorSurgeries, assistantSurgeries,
+    surgeryGroupA, surgeryGroupB, openSurgeries, thoracoscopySurgeries,
+    surgeryGroupA1, surgeryGroupA2, surgeryGroupA3, surgeryGroupA4,
+    surgeryGroupB1, surgeryGroupB2, surgeryGroupB3, surgeryGroupB4, surgeryGroupB5, surgeryGroupB6,
+    publicationsTotal, publicationsFirst,
+    totalPresentationUnits, nationalUnits, regionalUnits, requiredMeetingUnits,
+    conferenceCount, seminarCount, thoracoscopySeminarCount, safetyCount
+};
+        }
+
+        function openModal(type) {
+            modalType = type;
+            document.getElementById('modal').classList.add('show');
+            document.getElementById('modalForm').reset();
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.remove('show');
+        }
+
+        function submitForm(e) {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+            const obj = {};
+            formData.forEach((value, key) => obj[key] = value);
+            
+            if (modalType === 'surgery') data.surgeries.push(obj);
+            else if (modalType === 'publication') data.publications.push(obj);
+            else if (modalType === 'presentation') data.presentations.push(obj);
+            else if (modalType === 'conference') data.conferenceAttendances.push(obj);
+            else if (modalType === 'seminar') data.seminars.push(obj);
+            else if (modalType === 'thoracoscopy') data.thoracoscopySeminars.push(obj);
+            else if (modalType === 'safety') data.safetyTraining.push(obj);
+            
+            saveData();
+            closeModal();
+        }
+
+        function deleteItem(category, index) {
+            if (confirm('削除しますか？')) {
+                data[category].splice(index, 1);
+                saveData();
+            }
+        }
+
+        function exportAllDataCSV() {
+            const c = calc();
+            let csv = '';
+            
+            csv += '【申請条件サマリー】\n';
+            csv += `項目,現在,必要\n`;
+            csv += `全手術症例,${c.totalSurgeries},180\n`;
+            csv += `術者,${c.operatorSurgeries},60\n`;
+            csv += `助手,${c.assistantSurgeries},120\n`;
+            csv += `A群手術,${c.surgeryGroupA},45\n`;
+            csv += `B群手術,${c.surgeryGroupB},5\n`;
+            csv += `開胸下手術,${c.openSurgeries},20\n`;
+            csv += `胸腔鏡下手術,${c.thoracoscopySurgeries},20\n`;
+            csv += `論文総数,${c.publicationsTotal},3\n`;
+            csv += `筆頭論文,${c.publicationsFirst},1\n`;
+            csv += `発表単位,${c.totalPresentationUnits},5\n`;
+            csv += `全国学会単位,${c.nationalUnits},3\n`;
+            csv += `地方会単位,${c.regionalUnits},2以下\n`;
+            csv += `指定学会単位,${c.requiredMeetingUnits},1\n`;
+            csv += `学会参加,${c.conferenceCount},5\n`;
+            csv += `セミナー,${c.seminarCount},2\n`;
+            csv += `胸腔鏡セミナー,${c.thoracoscopySeminarCount},1\n`;
+            csv += `医療安全,${c.safetyCount},2\n\n`;
+            
+            csv += '【手術経験】\n';
+            csv += '手術日,役割,分類,手術種別\n';
+            data.surgeries.forEach(item => {
+                csv += `${item.date},${item.role},${item.group},${item.surgeryType}\n`;
+            });
+            csv += '\n';
+            
+            csv += '【論文】\n';
+            csv += '論文タイトル,掲載誌,掲載年,著者種別\n';
+            data.publications.forEach(item => {
+                csv += `${item.title},${item.journal},${item.year},${item.authorType}\n`;
+            });
+            csv += '\n';
+            
+            csv += '【学会発表】\n';
+            csv += '演題名,学会名,発表日,学会種別\n';
+            data.presentations.forEach(item => {
+                csv += `${item.title},${item.meetingName},${item.date},${item.meetingType}\n`;
+            });
+            csv += '\n';
+            
+            csv += '【学会参加】\n';
+            csv += '学会名,参加日\n';
+            data.conferenceAttendances.forEach(item => {
+                csv += `${item.name},${item.date}\n`;
+            });
+            csv += '\n';
+            
+            csv += '【セミナー参加】\n';
+            csv += 'セミナー名,参加日,種別\n';
+            data.seminars.forEach(item => {
+                csv += `${item.name},${item.date},${item.type}\n`;
+            });
+            csv += '\n';
+            
+            csv += '【胸腔鏡セミナー参加】\n';
+            csv += 'セミナー名,参加日\n';
+            data.thoracoscopySeminars.forEach(item => {
+                csv += `${item.name},${item.date}\n`;
+            });
+            csv += '\n';
+            
+            csv += '【医療安全研修】\n';
+            csv += '研修名,受講日,主催者\n';
+            data.safetyTraining.forEach(item => {
+                csv += `${item.name},${item.date},${item.organizer}\n`;
+            });
+            
+            const bom = '\uFEFF';
+            const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `呼吸器外科専門医_新規申請_${new Date().toISOString().slice(0,10)}.csv`;
+            link.click();
+        }
+
+        function render() {
+            const c = calc();
+            const root = document.getElementById('root');
+            
+            let html = `
+                <div class="container">
+                    <div class="card">
+                        <h1 class="font-bold text-blue" style="font-size:1.5rem;margin-bottom:0.5rem">呼吸器外科専門医 新規申請管理</h1>
+                        <p style="font-size:0.875rem" class="text-gray">研修開始からの記録を管理します</p>
+                    </div>
+                    
+                    <div class="card" style="padding:0">
+                        <div class="tabs">
+                            ${['overview','surgery','publication','presentation','conference','seminar','thoracoscopy','safety'].map((t,i) => 
+                                `<button class="tab ${activeTab===t?'active':''}" onclick="activeTab='${t}';render()">${['概要','手術','論文','発表','学会参加','セミナー','胸腔鏡','医療安全'][i]}</button>`
+                            ).join('')}
+                        </div>
+                    </div>`;
+
+            if (activeTab === 'overview') {
+                html += `
+                    <div class="card">
+                        <h2 class="font-bold text-blue mb-4">手術経験</h2>
+                        <div class="grid grid-2 grid-3">
+                            ${badge(c.totalSurgeries, 180, '全手術症例')}
+                            ${badge(c.operatorSurgeries, 60, '術者')}
+                            ${badge(c.assistantSurgeries, 120, '助手')}
+                            ${badge(c.surgeryGroupA, 45, 'A群手術')}
+                            ${badge(c.surgeryGroupB, 5, 'B群手術')}
+                            ${badge(c.openSurgeries, 20, '開胸下手術')}
+                            ${badge(c.thoracoscopySurgeries, 20, '胸腔鏡下手術')}
+                        </div>
+<div style="background:#f0f9ff;border-radius:0.5rem;padding:1rem;margin-top:1rem">
+        <h3 class="font-bold text-blue" style="font-size:1rem;margin-bottom:0.75rem">A群内訳</h3>
+        <div class="grid grid-2" style="gap:0.5rem;font-size:0.875rem">
+            <div>A-1 (肺葉切除/肺摘除): ${c.surgeryGroupA1} / 32</div>
+            <div>A-2 (縦隔腫瘍摘出): ${c.surgeryGroupA2} / 3</div>
+            <div>A-3 (自然気胸/肺嚢胞): ${c.surgeryGroupA3} / 5</div>
+            <div>A-4 (肺部分切除): ${c.surgeryGroupA4} / 5</div>
+        </div>
+    </div>
+    <div style="background:#fef9f3;border-radius:0.5rem;padding:1rem;margin-top:1rem">
+        <h3 class="font-bold text-blue" style="font-size:1rem;margin-bottom:0.75rem">B群内訳</h3>
+        <div class="grid grid-2" style="gap:0.5rem;font-size:0.875rem">
+            <div>B-1 (気管・気管支形成): ${c.surgeryGroupB1}</div>
+            <div>B-2 (隣接臓器合併切除): ${c.surgeryGroupB2}</div>
+            <div>B-3 (胸膜肺摘除): ${c.surgeryGroupB3}</div>
+            <div>B-4 (肺区域切除): ${c.surgeryGroupB4}</div>
+            <div>B-5 (膿胸手術): ${c.surgeryGroupB5}</div>
+            <div>B-6 (その他): ${c.surgeryGroupB6}</div>
+        </div>
+        <div style="font-size:0.75rem;color:#6b7280;margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid #e5e7eb">
+            ※B1〜B5を2項目以上、全体で3例以上含む必要があります
+        </div>
+    </div>
+                    <div class="card">
+                        <h2 class="font-bold text-blue mb-4">学術活動</h2>
+                        <div class="grid grid-2 grid-3">
+                            ${badge(c.publicationsTotal, 3, '論文総数')}
+                            ${badge(c.publicationsFirst, 1, '筆頭論文')}
+                            ${badge(c.totalPresentationUnits, 5, '発表単位')}
+                            ${badge(c.nationalUnits, 3, '全国学会単位')}
+                            ${badge(c.requiredMeetingUnits, 1, '指定学会単位')}
+                            ${badge(c.conferenceCount, 5, '学会参加')}
+                        </div>
+                        <div style="background:#eff6ff;border-radius:0.375rem;padding:0.75rem;margin-top:1rem;font-size:0.875rem">
+                            <div class="font-bold" style="margin-bottom:0.5rem">発表単位内訳:</div>
+                            <div>全国学会: ${c.nationalUnits} 単位（最低3単位必要）</div>
+                            <div>地方会: ${c.regionalUnits} 単位（最大2単位まで）</div>
+                            <div style="font-size:0.75rem;color:#6b7280;margin-top:0.5rem">※指定学会は呼吸器外科学会または胸部外科学会</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h2 class="font-bold text-blue mb-4">研修・セミナー</h2>
+                        <div class="grid grid-2 grid-3">
+                            ${badge(c.seminarCount, 2, 'セミナー')}
+                            ${badge(c.thoracoscopySeminarCount, 1, '胸腔鏡セミナー')}
+                            ${badge(c.safetyCount, 2, '医療安全')}
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h2 class="font-bold text-blue mb-4">データ出力</h2>
+                        <button class="btn btn-primary" onclick="exportAllDataCSV()">全データをCSV出力</button>
+                    </div>`;
+            } else if (activeTab === 'surgery') {
+                html += `
+                    <div class="card">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="font-bold text-blue">手術経験</h2>
+                            <button class="btn btn-primary" onclick="openModal('surgery')">+ 追加</button>
+                        </div>
+                        <div style="background:#eff6ff;border-radius:0.375rem;padding:0.75rem;margin-bottom:1rem;font-size:0.875rem">
+                            <div>全症例: ${c.totalSurgeries} / 180</div>
+                            <div>術者: ${c.operatorSurgeries} / 60 | 助手: ${c.assistantSurgeries} / 120</div>
+                            <div>A群: ${c.surgeryGroupA} / 45 | B群: ${c.surgeryGroupB} / 5</div>
+                            <div>開胸下: ${c.openSurgeries} / 20 | 胸腔鏡下(術者): ${c.thoracoscopySurgeries} / 20</div>
+                        </div>
+                        ${data.surgeries.map((item, i) => `
+                            <div class="item">
+                                <div class="item-content">
+                                    <div>${item.date} - ${item.role}<span class="badge-tag badge-${item.group && item.group.startsWith('A-') ? 'a' : 'b'}">${item.group}</span><span class="badge-tag badge-${item.surgeryType === '開胸下' ? 'open' : 'thoraco'}">${item.surgeryType}</span></div>                                </div>
+                                <button onclick="deleteItem('surgeries',${i})" style="border:none;background:none;color:#dc2626;cursor:pointer">削除</button>
+                            </div>
+                        `).join('')}
+                    </div>`;
+            } else if (activeTab === 'publication') {
+                html += `
+                    <div class="card">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="font-bold text-blue">論文・著書</h2>
+                            <button class="btn btn-primary" onclick="openModal('publication')">+ 追加</button>
+                        </div>
+                        <div style="background:#eff6ff;border-radius:0.375rem;padding:0.75rem;margin-bottom:1rem;font-size:0.875rem">
+                            <div>総数: ${c.publicationsTotal} / 3 | 筆頭: ${c.publicationsFirst} / 1</div>
+                        </div>
+                        ${data.publications.map((item, i) => `
+                            <div class="item">
+                                <div class="item-content">
+                                    <div>${item.title}<span class="badge-tag badge-first">${item.authorType}</span></div>
+                                    <div style="font-size:0.75rem;color:#6b7280">${item.journal} (${item.year})</div>
+                                </div>
+                                <button onclick="deleteItem('publications',${i})" style="border:none;background:none;color:#dc2626;cursor:pointer">削除</button>
+                            </div>
+                        `).join('')}
+                    </div>`;
+            } else if (activeTab === 'presentation') {
+                html += `
+                    <div class="card">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="font-bold text-blue">学会発表</h2>
+                            <button class="btn btn-primary" onclick="openModal('presentation')">+ 追加</button>
+                        </div>
+                        <div style="background:#eff6ff;border-radius:0.375rem;padding:0.75rem;margin-bottom:1rem;font-size:0.875rem">
+                            <div>合計単位: ${c.totalPresentationUnits} / 5</div>
+                            <div>全国学会: ${c.nationalUnits} 単位（最低3単位必要、うち指定学会${c.requiredMeetingUnits}単位）</div>
+                            <div>地方会: ${c.regionalUnits} 単位（最大2単位まで）</div>
+                        </div>
+                        ${data.presentations.map((item, i) => `
+                            <div class="item">
+                                <div class="item-content">
+                                    <div>${item.title}</div>
+                                    <div style="font-size:0.75rem;color:#6b7280">${item.meetingName} (${item.date}) - ${item.meetingType}</div>
+                                </div>
+                                <button onclick="deleteItem('presentations',${i})" style="border:none;background:none;color:#dc2626;cursor:pointer">削除</button>
+                            </div>
+                        `).join('')}
+                    </div>`;
+            } else if (activeTab === 'conference') {
+                html += `
+                    <div class="card">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="font-bold text-blue">学会参加</h2>
+                            <button class="btn btn-primary" onclick="openModal('conference')">+ 追加</button>
+                        </div>
+                        <div style="background:#eff6ff;border-radius:0.375rem;padding:0.75rem;margin-bottom:1rem;font-size:0.875rem">
+                            <div>参加回数: ${c.conferenceCount} / 5</div>
+                            <div style="font-size:0.75rem;color:#6b7280;margin-top:0.25rem">※呼吸器外科学会または胸部外科学会</div>
+                        </div>
+                        ${data.conferenceAttendances.map((item, i) => `
+                            <div class="item">
+                                <span>✓</span>
+                                <div class="item-content">
+                                    <div>${item.name}</div>
+                                    <div style="font-size:0.75rem;color:#6b7280">${item.date}</div>
+                                </div>
+                                <button onclick="deleteItem('conferenceAttendances',${i})" style="border:none;background:none;color:#dc2626;cursor:pointer">削除</button>
+                            </div>
+                        `).join('')}
+                    </div>`;
+            } else if (activeTab === 'seminar') {
+                html += `
+                    <div class="card">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="font-bold text-blue">セミナー参加</h2>
+                            <button class="btn btn-primary" onclick="openModal('seminar')">+ 追加</button>
+                        </div>
+                        <div style="background:#eff6ff;border-radius:0.375rem;padding:0.75rem;margin-bottom:1rem;font-size:0.875rem">
+                            <div>参加回数: ${c.seminarCount} / 2</div>
+                            <div style="font-size:0.75rem;color:#6b7280;margin-top:0.25rem">※呼吸器外科セミナーまたはPostgraduate Course</div>
+                        </div>
+                        ${data.seminars.map((item, i) => `
+                            <div class="item">
+                                <span>✓</span>
+                                <div class="item-content">
+                                    <div>${item.name}</div>
+                                    <div style="font-size:0.75rem;color:#6b7280">${item.date} - ${item.type}</div>
+                                </div>
+                                <button onclick="deleteItem('seminars',${i})" style="border:none;background:none;color:#dc2626;cursor:pointer">削除</button>
+                            </div>
+                        `).join('')}
+                    </div>`;
+            } else if (activeTab === 'thoracoscopy') {
+                html += `
+                    <div class="card">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="font-bold text-blue">胸腔鏡セミナー参加</h2>
+                            <button class="btn btn-primary" onclick="openModal('thoracoscopy')">+ 追加</button>
+                        </div>
+                        <div style="background:#eff6ff;border-radius:0.375rem;padding:0.75rem;margin-bottom:1rem;font-size:0.875rem">
+                            <div>参加回数: ${c.thoracoscopySeminarCount} / 1</div>
+                            <div style="font-size:0.75rem;color:#6b7280;margin-top:0.25rem">※呼吸器外科胸腔鏡教育セミナー</div>
+                        </div>
+                        ${data.thoracoscopySeminars.map((item, i) => `
+                            <div class="item">
+                                <span>✓</span>
+                                <div class="item-content">
+                                    <div>${item.name}</div>
+                                    <div style="font-size:0.75rem;color:#6b7280">${item.date}</div>
+                                </div>
+                                <button onclick="deleteItem('thoracoscopySeminars',${i})" style="border:none;background:none;color:#dc2626;cursor:pointer">削除</button>
+                            </div>
+                        `).join('')}
+                    </div>`;
+            } else if (activeTab === 'safety') {
+                html += `
+                    <div class="card">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="font-bold text-blue">医療安全研修</h2>
+                            <button class="btn btn-primary" onclick="openModal('safety')">+ 追加</button>
+                        </div>
+                        <div style="background:#eff6ff;border-radius:0.375rem;padding:0.75rem;margin-bottom:1rem;font-size:0.875rem">
+                            <div>受講回数: ${c.safetyCount} / 2</div>
+                        </div>
+                        ${data.safetyTraining.map((item, i) => `
+                            <div class="item">
+                                <span>✓</span>
+                                <div class="item-content">
+                                    <div>${item.name}</div>
+                                    <div style="font-size:0.75rem;color:#6b7280">${item.date} - ${item.organizer}</div>
+                                </div>
+                                <button onclick="deleteItem('safetyTraining',${i})" style="border:none;background:none;color:#dc2626;cursor:pointer">削除</button>
+                            </div>
+                        `).join('')}
+                    </div>`;
+            }
+
+            html += `</div>
+                <div id="modal" class="modal" onclick="if(event.target===this)closeModal()">
+                    <div class="modal-content">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-bold">項目を追加</h3>
+                            <button onclick="closeModal()" style="border:none;background:none;font-size:1.5rem;cursor:pointer">×</button>
+                        </div>
+                        <form id="modalForm" onsubmit="submitForm(event)">
+                            ${getFormHtml()}
+                            <div class="flex gap-2">
+                                <button type="button" onclick="closeModal()" class="btn btn-secondary" style="flex:1">キャンセル</button>
+<button type="submit" class="btn btn-primary" style="flex:1">追加</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>`;
+
+            root.innerHTML = html;
+        }
+
+        function badge(current, required, label) {
+            const ok = current >= required;
+            return `<div class="${ok ? 'badge-complete' : 'badge-incomplete'}">
+                <div style="display:flex;align-items:center;gap:0.5rem;font-weight:bold;margin-bottom:0.5rem">
+                    <span>${ok ? '✓' : '!'}</span>
+                    <span>${label}</span>
+                </div>
+                <div class="badge-number">${current} / ${required}</div>
+                ${!ok ? `<div style="font-size:0.875rem;color:#dc2626;margin-top:0.25rem">あと ${required - current} 必要</div>` : ''}
+            </div>`;
+        }
+
+        function getFormHtml() {
+            if (modalType === 'surgery') return `
+                <div class="form-group"><label class="form-label">手術日</label><input name="date" type="date" required class="form-input"></div>
+                <div class="form-group"><label class="form-label">役割</label><select name="role" required class="form-select"><option value="">選択</option><option value="術者">術者</option><option value="第1助手">第1助手</option><option value="第2助手">第2助手</option><option value="第3助手">第3助手</option></select></div>
+                <div class="form-group"><label class="form-label">分類</label><select name="group" required class="form-select"><option value="">選択</option><optgroup label="A群"><option value="A-1">A-1: 肺葉切除/肺摘除</option><option value="A-2">A-2: 縦隔腫瘍摘出</option><option value="A-3">A-3: 自然気胸/肺嚢胞切除</option><option value="A-4">A-4: 肺部分切除/腫瘍核出</option></optgroup><optgroup label="B群"><option value="B-1">B-1: 気管・気管支形成術</option><option value="B-2">B-2: 隣接臓器合併切除</option><option value="B-3">B-3: 胸膜肺摘除術</option><option value="B-4">B-4: 肺区域切除術</option><option value="B-5">B-5: 膿胸手術</option><option value="B-6">B-6: その他</option></optgroup></select></div>
+                <div class="form-group"><label class="form-label">手術種別</label><select name="surgeryType" required class="form-select"><option value="">選択</option><option value="開胸下">開胸下</option><option value="胸腔鏡下">胸腔鏡下</option></select></div>
+                <div class="surgery-reference">
+                    <h4>【A群・B群の具体的記載】</h4>
+                    <div style="margin-bottom:1rem;">
+                        <strong>■A群（術者 最低必要症例数 ※印は胸腔鏡下手術を含んで良い）</strong><br>
+                        1. 肺葉切除又は肺摘除術：32例※以上（最低25例は縦隔リンパ節郭清を伴うものとする）<br>
+                        2. 縦隔腫瘍摘出術（重症筋無力症に対する胸腺摘除術も含むことができる）：3例※以上<br>
+                        3. 自然気胸手術又は肺嚢胞切除術：5例※以上<br>
+                        4. 肺部分切除術・腫瘍核出術：5例※以上
+                    </div>
+                    <div style="margin-bottom:1rem;">
+                        <strong>■B群（術者 最低必要症例数）</strong><br>
+                        B1～B6の中から5例※以上<br>
+                        但し、B1～B5のものを2項目以上、全体で3例以上含む<br><br>
+                        1. 気管・気管支形成術を伴う肺切除術<br>
+                        2. 骨性胸郭、横隔膜、心嚢、大血管切除を伴う手術<br>
+                        3. 胸膜肺摘除術<br>
+                        4. 肺区域切除術<br>
+                        5. 膿胸に対する手術（開窓術・胸郭成形術を含む）<br>
+                        6. その他の呼吸器外科手術
+                    </div>
+                    <div class="surgery-note">
+                        <strong>【注記】</strong><br>
+                        (A1) 縦隔リンパ節郭清は「ND2a-1以上」とする<br>
+                        (A2) 心膜良性腫瘍・胸壁（胸膜）良性腫瘍・食道良性摘出術を含む<br>
+                        (B2) 隣接臓器合併切除を含む肺・胸壁・横隔膜・縦隔悪性腫瘍手術。合併する臓器として食道も含める。胸壁や横隔膜・縦隔悪性腫瘍の場合、合併する臓器として肺も含める。<br>
+                        (B3) NCD2016年登録症例から拡大胸膜切除／肺剥皮術、胸膜切除／肺剥皮術が適応となります。<br><br>
+                        ※ 1症例1術者とする（術者とは主要部分を執刀（担当）した者）<br>
+                        ※ 1症例が2項目以上の手術に該当する場合であっても1症例を2例として計算しない
+                    </div>
+                </div>`;
+            if (modalType === 'publication') return `
+                <div class="form-group"><label class="form-label">論文タイトル</label><input name="title" type="text" required class="form-input"></div>
+                <div class="form-group"><label class="form-label">掲載誌</label><input name="journal" type="text" required class="form-input"></div>
+                <div class="form-group"><label class="form-label">掲載年</label><input name="year" type="text" required class="form-input"></div>
+                <div class="form-group"><label class="form-label">著者種別</label><select name="authorType" required class="form-select"><option value="">選択</option><option value="筆頭">筆頭</option><option value="共著">共著</option></select></div>`;
+            if (modalType === 'presentation') return `
+                <div class="form-group"><label class="form-label">演題名</label><input name="title" type="text" required class="form-input"></div>
+                <div class="form-group"><label class="form-label">学会名</label><input name="meetingName" type="text" required class="form-input" placeholder="例：日本呼吸器外科学会"></div>
+                <div class="form-group"><label class="form-label">発表日</label><input name="date" type="date" required class="form-input"></div>
+                <div class="form-group"><label class="form-label">学会種別</label><select name="meetingType" required class="form-select"><option value="">選択</option><option value="全国学会">全国学会（1単位）</option><option value="地方会">地方会（0.5単位）</option></select></div>
+                <div style="background:#eff6ff;border-radius:0.375rem;padding:0.75rem;margin-top:0.5rem;font-size:0.75rem;color:#6b7280">
+                    <div><strong>注意事項:</strong></div>
+                    <div>・全国学会は3単位以上必要（うち1単位は呼吸器外科学会または胸部外科学会）</div>
+                    <div>・地方会は最大2単位まで</div>
+                    <div>・すべて筆頭発表のみカウント</div>
+                </div>`;
+            if (modalType === 'conference') return `
+                <div class="form-group"><label class="form-label">学会名</label><input name="name" type="text" required class="form-input" placeholder="例：日本呼吸器外科学会学術集会"></div>
+                <div class="form-group"><label class="form-label">参加日</label><input name="date" type="date" required class="form-input"></div>
+                <div style="background:#eff6ff;border-radius:0.375rem;padding:0.75rem;margin-top:0.5rem;font-size:0.75rem;color:#6b7280">
+                    ※呼吸器外科学会学術集会または胸部外科学会学術集会に計5回以上参加必要
+                </div>`;
+            if (modalType === 'seminar') return `
+                <div class="form-group"><label class="form-label">セミナー名</label><input name="name" type="text" required class="form-input"></div>
+                <div class="form-group"><label class="form-label">参加日</label><input name="date" type="date" required class="form-input"></div>
+                <div class="form-group"><label class="form-label">種別</label><select name="type" required class="form-select"><option value="">選択</option><option value="呼吸器外科セミナー">呼吸器外科セミナー</option><option value="Postgraduate Course">Postgraduate Course</option></select></div>
+                <div style="background:#eff6ff;border-radius:0.375rem;padding:0.75rem;margin-top:0.5rem;font-size:0.75rem;color:#6b7280">
+                    ※計2回以上参加が必要
+                </div>`;
+            if (modalType === 'thoracoscopy') return `
+                <div class="form-group"><label class="form-label">セミナー名</label><input name="name" type="text" required class="form-input" placeholder="例：呼吸器外科胸腔鏡教育セミナー"></div>
+                <div class="form-group"><label class="form-label">参加日</label><input name="date" type="date" required class="form-input"></div>
+                <div style="background:#eff6ff;border-radius:0.375rem;padding:0.75rem;margin-top:0.5rem;font-size:0.75rem;color:#6b7280">
+                    ※呼吸器外科胸腔鏡教育セミナーに1回以上参加が必要
+                </div>`;
+            if (modalType === 'safety') return `
+                <div class="form-group"><label class="form-label">研修名</label><input name="name" type="text" required class="form-input"></div>
+                <div class="form-group"><label class="form-label">受講日</label><input name="date" type="date" required class="form-input"></div>
+                <div class="form-group"><label class="form-label">主催者</label><input name="organizer" type="text" required class="form-input"></div>`;
+            return '';
+        }
+
+        render();
+    </script>
+</body>
+</html>
